@@ -7,7 +7,7 @@ import struct
 import zlib
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent
 PACK_FORMAT = 57
 
 def jtext(text: str, color: str | None = None, bold: bool = False) -> str:
@@ -2441,13 +2441,19 @@ SOFTWARE.
 
 def validate(root: Path) -> None:
     errors: list[str] = []
-    fn_re_files = {}
-    for mc in root.glob("*"):
-        if not mc.is_dir() or mc.name == "tools":
+    fn_re_files: dict[str, Path] = {}
+    pack_dirs = []
+    for mc in sorted(root.glob("*")):
+        if not mc.is_dir() or mc.name in ("tools", ".git", "__pycache__"):
             continue
-        meta = json.loads((mc / "pack.mcmeta").read_text(encoding="utf-8"))
-        if meta["pack"]["pack_format"] != 57:
+        meta_path = mc / "pack.mcmeta"
+        if not meta_path.is_file():
+            continue
+        pack_dirs.append(mc)
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if meta["pack"]["pack_format"] != PACK_FORMAT:
             errors.append(f"{mc.name} pack_format")
+        data_root = mc / "data"
         for path in mc.rglob("*"):
             if path.suffix == ".json":
                 json.loads(path.read_text(encoding="utf-8"))
@@ -2455,7 +2461,12 @@ def validate(root: Path) -> None:
                 text = path.read_text(encoding="utf-8")
                 if "\t" in text:
                     errors.append(f"tab {path}")
-                rel = path.relative_to(mc / "data")
+                if not data_root.is_dir():
+                    continue
+                try:
+                    rel = path.relative_to(data_root)
+                except ValueError:
+                    continue
                 parts = rel.parts
                 if len(parts) < 3 or parts[1] != "function":
                     continue
@@ -2466,26 +2477,25 @@ def validate(root: Path) -> None:
                     raw = line.strip()
                     if raw.startswith("$") and "$( " in raw:
                         errors.append(f"macro space {path}")
-    # objectives
     import re
+
     obj_re = re.compile(r"scoreboard objectives add ([^\s]+)")
     call_re = re.compile(r"function ([a-z0-9_]+:[a-z0-9_./]+)")
-    for path in root.glob("*/*"):
-        pass
-    for path in root.rglob("*.mcfunction"):
-        text = path.read_text(encoding="utf-8")
-        for m in obj_re.finditer(text):
-            if len(m.group(1)) > 16:
-                errors.append(f"obj {m.group(1)} in {path}")
-        for line in text.splitlines():
-            if "$(" in line:
-                continue
-            for m in call_re.finditer(line):
-                name = m.group(1)
-                if name not in fn_re_files:
-                    errors.append(f"missing {name} from {path.relative_to(root)}")
-        if "click_event" in text or "min_format" in text:
-            errors.append(f"new syntax {path}")
+    for mc in pack_dirs:
+        for path in mc.rglob("*.mcfunction"):
+            text = path.read_text(encoding="utf-8")
+            for m in obj_re.finditer(text):
+                if len(m.group(1)) > 16:
+                    errors.append(f"obj {m.group(1)} in {path}")
+            for line in text.splitlines():
+                if "$(" in line:
+                    continue
+                for m in call_re.finditer(line):
+                    name = m.group(1)
+                    if name not in fn_re_files:
+                        errors.append(f"missing {name} from {path.relative_to(root)}")
+            if "click_event" in text or "min_format" in text:
+                errors.append(f"new syntax {path}")
     if errors:
         raise SystemExit("VALIDATION FAILED\n" + "\n".join(errors[:80]))
     print(f"ok functions={len(fn_re_files)}")
