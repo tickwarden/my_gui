@@ -1,0 +1,19 @@
+data merge entity @e[type=minecraft:chest_minecart,tag=vault.this,limit=1] {CustomName:'{"text":"Kasa • C","italic":false,"color":"dark_aqua"}'}
+$function vault:load/one {pid:$(pid),slot:0,page:"C"}
+$function vault:load/one {pid:$(pid),slot:1,page:"C"}
+$function vault:load/one {pid:$(pid),slot:2,page:"C"}
+$function vault:load/one {pid:$(pid),slot:3,page:"C"}
+$function vault:load/one {pid:$(pid),slot:4,page:"C"}
+$function vault:load/one {pid:$(pid),slot:5,page:"C"}
+$function vault:load/one {pid:$(pid),slot:6,page:"C"}
+$function vault:load/one {pid:$(pid),slot:7,page:"C"}
+$function vault:load/one {pid:$(pid),slot:8,page:"C"}
+$function vault:load/one {pid:$(pid),slot:9,page:"C"}
+$function vault:load/one {pid:$(pid),slot:10,page:"C"}
+$function vault:load/one {pid:$(pid),slot:11,page:"C"}
+$function vault:load/one {pid:$(pid),slot:12,page:"C"}
+$function vault:load/one {pid:$(pid),slot:13,page:"C"}
+$function vault:load/one {pid:$(pid),slot:14,page:"C"}
+$function vault:load/one {pid:$(pid),slot:15,page:"C"}
+$function vault:load/one {pid:$(pid),slot:16,page:"C"}
+$function vault:load/one {pid:$(pid),slot:17,page:"C"}

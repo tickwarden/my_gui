@@ -1,0 +1,1 @@
+function reliquary:gui/close

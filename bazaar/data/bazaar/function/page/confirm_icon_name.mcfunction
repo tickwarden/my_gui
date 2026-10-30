@@ -1,0 +1,2 @@
+$data modify entity @e[type=minecraft:chest_minecart,tag=bazaar.this,limit=1] Items[{Slot:13b}].components."minecraft:custom_name" set value '{"text":"$(name)","italic":false,"color":"white"}'
+$data modify entity @e[type=minecraft:chest_minecart,tag=bazaar.this,limit=1] Items[{Slot:13b}].components."minecraft:lore" set value ['{"text":"Önizleme","italic":false,"color":"gray"}','{"text":"Bu eşya alınamaz","italic":false,"color":"dark_gray"}']

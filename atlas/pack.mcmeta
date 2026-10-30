@@ -1,0 +1,20 @@
+{
+  "pack": {
+    "pack_format": 57,
+    "supported_formats": [
+      57,
+      57
+    ],
+    "description": [
+      {
+        "text": "Yol Atlası\n",
+        "color": "aqua",
+        "bold": true
+      },
+      {
+        "text": "Chest GUI ışınlanma • 1.21.3",
+        "color": "gray"
+      }
+    ]
+  }
+}

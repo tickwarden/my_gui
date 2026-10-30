@@ -1,0 +1,1 @@
+function bazaar:gui/close

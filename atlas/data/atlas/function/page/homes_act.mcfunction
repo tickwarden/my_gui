@@ -1,0 +1,1 @@
+$data modify storage atlas:rt p$(pid).actions set value {s0:"open_home0",s1:"open_home1",s2:"open_home2",s3:"none",s4:"none",s5:"none",s6:"none",s7:"none",s8:"none",s9:"none",s10:"none",s11:"none",s12:"none",s13:"none",s14:"none",s15:"none",s16:"none",s17:"none",s18:"page_main",s19:"none",s20:"none",s21:"none",s22:"none",s23:"none",s24:"none",s25:"none",s26:"close"}

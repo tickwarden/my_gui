@@ -1,0 +1,1 @@
+function vault:gui/close

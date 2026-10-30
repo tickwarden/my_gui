@@ -1,0 +1,19 @@
+scoreboard players set #used vault.tmp 0
+$function vault:sync/one {pid:$(pid),slot:0,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:1,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:2,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:3,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:4,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:5,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:6,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:7,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:8,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:9,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:10,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:11,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:12,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:13,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:14,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:15,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:16,page:"A"}
+$function vault:sync/one {pid:$(pid),slot:17,page:"A"}

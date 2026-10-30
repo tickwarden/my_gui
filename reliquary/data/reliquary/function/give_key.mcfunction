@@ -1,0 +1,1 @@
+give @s minecraft:carrot_on_a_stick[custom_name='{"text":"Emanet Asası","italic":false,"color":"light_purple","bold":true}',lore=['{"text":"Sağ tık: sınıf salonu","italic":false,"color":"gray"}','{"text":"/trigger reliquary","italic":false,"color":"dark_gray"}'],custom_data={key:1b,pack:"reliquary"},max_stack_size=1,enchantment_glint_override=true] 1

@@ -1,0 +1,3 @@
+execute if score @s vault.page matches 0 run title @s actionbar [{"text":"Sayfa A","color":"green"},{"text":"  ","color":"gray"},{"score":{"name":"@s","objective":"vault.used"},"color":"white"},{"text":"/18","color":"dark_gray"}]
+execute if score @s vault.page matches 1 run title @s actionbar [{"text":"Sayfa B","color":"yellow"},{"text":"  ","color":"gray"},{"score":{"name":"@s","objective":"vault.used"},"color":"white"},{"text":"/18","color":"dark_gray"}]
+execute if score @s vault.page matches 2 run title @s actionbar [{"text":"Sayfa C","color":"aqua"},{"text":"  ","color":"gray"},{"score":{"name":"@s","objective":"vault.used"},"color":"white"},{"text":"/18","color":"dark_gray"}]

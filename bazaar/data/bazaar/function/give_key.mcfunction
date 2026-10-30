@@ -1,0 +1,1 @@
+give @s minecraft:warped_fungus_on_a_stick[custom_name='{"text":"Çarşı Asası","italic":false,"color":"gold","bold":true}',lore=['{"text":"Sağ tık: çarşıyı aç","italic":false,"color":"gray"}','{"text":"/trigger bazaar","italic":false,"color":"dark_gray"}'],custom_data={key:1b,pack:"bazaar"},max_stack_size=1,enchantment_glint_override=true] 1

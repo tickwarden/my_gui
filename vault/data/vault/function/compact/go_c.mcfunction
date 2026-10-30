@@ -1,0 +1,39 @@
+data modify storage vault:tmp list set value []
+$execute if data storage vault:rt p$(pid).C.s0.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s0
+$execute if data storage vault:rt p$(pid).C.s1.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s1
+$execute if data storage vault:rt p$(pid).C.s2.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s2
+$execute if data storage vault:rt p$(pid).C.s3.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s3
+$execute if data storage vault:rt p$(pid).C.s4.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s4
+$execute if data storage vault:rt p$(pid).C.s5.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s5
+$execute if data storage vault:rt p$(pid).C.s6.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s6
+$execute if data storage vault:rt p$(pid).C.s7.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s7
+$execute if data storage vault:rt p$(pid).C.s8.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s8
+$execute if data storage vault:rt p$(pid).C.s9.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s9
+$execute if data storage vault:rt p$(pid).C.s10.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s10
+$execute if data storage vault:rt p$(pid).C.s11.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s11
+$execute if data storage vault:rt p$(pid).C.s12.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s12
+$execute if data storage vault:rt p$(pid).C.s13.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s13
+$execute if data storage vault:rt p$(pid).C.s14.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s14
+$execute if data storage vault:rt p$(pid).C.s15.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s15
+$execute if data storage vault:rt p$(pid).C.s16.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s16
+$execute if data storage vault:rt p$(pid).C.s17.id run data modify storage vault:tmp list append from storage vault:rt p$(pid).C.s17
+$data remove storage vault:rt p$(pid).C
+$data modify storage vault:rt p$(pid).C set value {}
+$execute if data storage vault:tmp list[0] run data modify storage vault:rt p$(pid).C.s0 set from storage vault:tmp list[0]
+$execute if data storage vault:tmp list[1] run data modify storage vault:rt p$(pid).C.s1 set from storage vault:tmp list[1]
+$execute if data storage vault:tmp list[2] run data modify storage vault:rt p$(pid).C.s2 set from storage vault:tmp list[2]
+$execute if data storage vault:tmp list[3] run data modify storage vault:rt p$(pid).C.s3 set from storage vault:tmp list[3]
+$execute if data storage vault:tmp list[4] run data modify storage vault:rt p$(pid).C.s4 set from storage vault:tmp list[4]
+$execute if data storage vault:tmp list[5] run data modify storage vault:rt p$(pid).C.s5 set from storage vault:tmp list[5]
+$execute if data storage vault:tmp list[6] run data modify storage vault:rt p$(pid).C.s6 set from storage vault:tmp list[6]
+$execute if data storage vault:tmp list[7] run data modify storage vault:rt p$(pid).C.s7 set from storage vault:tmp list[7]
+$execute if data storage vault:tmp list[8] run data modify storage vault:rt p$(pid).C.s8 set from storage vault:tmp list[8]
+$execute if data storage vault:tmp list[9] run data modify storage vault:rt p$(pid).C.s9 set from storage vault:tmp list[9]
+$execute if data storage vault:tmp list[10] run data modify storage vault:rt p$(pid).C.s10 set from storage vault:tmp list[10]
+$execute if data storage vault:tmp list[11] run data modify storage vault:rt p$(pid).C.s11 set from storage vault:tmp list[11]
+$execute if data storage vault:tmp list[12] run data modify storage vault:rt p$(pid).C.s12 set from storage vault:tmp list[12]
+$execute if data storage vault:tmp list[13] run data modify storage vault:rt p$(pid).C.s13 set from storage vault:tmp list[13]
+$execute if data storage vault:tmp list[14] run data modify storage vault:rt p$(pid).C.s14 set from storage vault:tmp list[14]
+$execute if data storage vault:tmp list[15] run data modify storage vault:rt p$(pid).C.s15 set from storage vault:tmp list[15]
+$execute if data storage vault:tmp list[16] run data modify storage vault:rt p$(pid).C.s16 set from storage vault:tmp list[16]
+$execute if data storage vault:tmp list[17] run data modify storage vault:rt p$(pid).C.s17 set from storage vault:tmp list[17]

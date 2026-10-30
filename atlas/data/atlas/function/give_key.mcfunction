@@ -1,0 +1,1 @@
+give @s minecraft:carrot_on_a_stick[custom_name='{"text":"Atlas Değneği","italic":false,"color":"aqua","bold":true}',lore=['{"text":"Sağ tık: atlası aç","italic":false,"color":"gray"}','{"text":"/trigger atlas","italic":false,"color":"dark_gray"}'],custom_data={key:1b,pack:"atlas"},max_stack_size=1,enchantment_glint_override=true] 1

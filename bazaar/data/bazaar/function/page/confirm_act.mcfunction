@@ -1,0 +1,1 @@
+$data modify storage bazaar:rt p$(pid).actions set value {s0:"none",s1:"none",s2:"none",s3:"none",s4:"none",s5:"none",s6:"none",s7:"none",s8:"none",s9:"none",s10:"none",s11:"buy_no",s12:"none",s13:"none",s14:"none",s15:"buy_yes",s16:"none",s17:"none",s18:"none",s19:"none",s20:"none",s21:"none",s22:"buy_no",s23:"none",s24:"none",s25:"none",s26:"close"}

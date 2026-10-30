@@ -1,0 +1,20 @@
+{
+  "pack": {
+    "pack_format": 57,
+    "supported_formats": [
+      57,
+      57
+    ],
+    "description": [
+      {
+        "text": "Kutsal Kasa\n",
+        "color": "dark_aqua",
+        "bold": true
+      },
+      {
+        "text": "Chest GUI kişisel depo • 1.21.3",
+        "color": "gray"
+      }
+    ]
+  }
+}
