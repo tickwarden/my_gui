@@ -1,1 +1,0 @@
-$function reliquary:act/$(action)
