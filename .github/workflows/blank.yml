@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -26,13 +28,19 @@ jobs:
         run: |
           rm -rf atlas bazaar reliquary vault
 
-      - name: Run a one-line script
+      - name: Generate datapacks
         run: python generate.py
 
-      - name: Run a multi-line script
+      - name: Configure git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
-          git diff --cached --quiet || git commit -m "Initial commit or auto-generated changes"
-          git push
+
+      - name: Stage
+        run: git add .
+
+      - name: Commit
+        run: git diff --cached --quiet || git commit -m "Auto-generated changes"
+
+      - name: Push
+        run: git push
