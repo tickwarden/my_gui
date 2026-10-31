@@ -1,0 +1,1 @@
+function atelier:gui/close

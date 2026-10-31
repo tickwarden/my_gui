@@ -1,0 +1,20 @@
+{
+  "pack": {
+    "pack_format": 57,
+    "supported_formats": [
+      57,
+      57
+    ],
+    "description": [
+      {
+        "text": "Görev Tahtası\n",
+        "color": "gold",
+        "bold": true
+      },
+      {
+        "text": "Chest GUI görev & ödül • 1.21.3",
+        "color": "gray"
+      }
+    ]
+  }
+}

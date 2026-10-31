@@ -10,6 +10,9 @@ Kurulum: bir klasörü dünyanın `datapacks/` dizinine kopyala, `/reload`. Dör
 | Yol Atlası | `atlas` | `/trigger atlas` veya Atlas Değneği | Ev, sunucu işareti, son güvenli yer, merkez / nether / end |
 | Sınıf Emaneti | `reliquary` | `/trigger reliquary` veya Emanet Asası | Kilitli sınıflar, 10 dk kit, ustalık, takım öneki |
 | Kutsal Kasa | `vault` | `/trigger vault` veya Kasa Anahtarı | Kişiye özel 3×18 gerçek eşya deposu |
+| Posta Kutusu | `mailbox` | `/trigger mailbox` veya Posta Defteri | Gelen kutusu, mesaj yaz, ek |
+| Büyü Atölyesi | `atelier` | `/trigger atelier` veya Atölye Kitabı | Büyü seçimi, XP maliyeti (demo) |
+| Görev Tahtası | `questboard` | `/trigger questboard` veya Görev Haritası | Günlük/haftalık görev, ödül |
 
 ## Ortak kullanım
 

@@ -1,0 +1,31 @@
+{
+  "datapack.env.cmdVersion": "1.21.3",
+  "datapack.env.dataVersion": "1.21.3",
+  "datapack.lint.idOmitDefaultNamespace": [
+    "warning",
+    true
+  ],
+  "datapack.lint.nameOfObjectives": [
+    "warning",
+    "camelCase|snake_case|dotted"
+  ],
+  "datapack.lint.nameOfTags": [
+    "warning",
+    "camelCase|snake_case|dotted"
+  ],
+  "datapack.lint.nameOfTeams": [
+    "warning",
+    "camelCase|snake_case"
+  ],
+  "datapack.lint.timeOmitTickUnit": "warning",
+  "datapack.lint.nbtBoolean": "warning",
+  "files.associations": {
+    "*.mcfunction": "mcfunction",
+    "pack.mcmeta": "json"
+  },
+  "[mcfunction]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false
+  }
+}

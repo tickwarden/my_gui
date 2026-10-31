@@ -1,0 +1,1 @@
+function questboard:gui/close

@@ -1,0 +1,1 @@
+give @s minecraft:enchanted_book[custom_name='{"text":"Atölye Kitabı","italic":false,"color":"light_purple","bold":true}',lore=['{"text":"Sağ tık: atölyeyi aç","italic":false,"color":"gray"}','{"text":"/trigger atelier","italic":false,"color":"dark_gray"}'],custom_data={key:1b,pack:"atelier"},max_stack_size=1,enchantment_glint_override=true] 1

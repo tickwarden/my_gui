@@ -1,0 +1,1 @@
+$data modify storage mailbox:rt p$(pid).actions set value {s0:"none",s1:"none",s2:"none",s3:"none",s4:"pick_target",s5:"none",s6:"none",s7:"none",s8:"none",s9:"none",s10:"none",s11:"set_subject",s12:"none",s13:"set_body",s14:"none",s15:"set_attach",s16:"none",s17:"none",s18:"page_main",s19:"none",s20:"none",s21:"none",s22:"send",s23:"none",s24:"none",s25:"none",s26:"close"}

@@ -1,0 +1,3 @@
+data modify storage questboard:config set value {ready:1b,daily_reset:1b}
+data modify storage questboard:catalog daily set value [{id:"logs",name:"Odun Topla",target:32,item:"minecraft:oak_log",reward:5},{id:"stone",name:"Taş Kır",target:64,item:"minecraft:cobblestone",reward:4},{id:"wheat",name:"Buğday Biç",target:24,item:"minecraft:wheat",reward:6},{id:"mob",name:"Canavar Avı",target:10,item:"minecraft:rotten_flesh",reward:8}]
+data modify storage questboard:catalog weekly set value [{id:"diamond",name:"Elmas Madencisi",target:5,item:"minecraft:diamond",reward:40},{id:"nether",name:"Nether Gezgini",target:1,item:"minecraft:netherrack",reward:25},{id:"build",name:"İnşaat Ustası",target:128,item:"minecraft:bricks",reward:30}]

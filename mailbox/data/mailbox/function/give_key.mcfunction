@@ -1,0 +1,1 @@
+give @s minecraft:writable_book[custom_name='{"text":"Posta Defteri","italic":false,"color":"white","bold":true}',lore=['{"text":"Sağ tık: posta kutusunu aç","italic":false,"color":"gray"}','{"text":"/trigger mailbox","italic":false,"color":"dark_gray"}'],custom_data={key:1b,pack:"mailbox"},max_stack_size=1,enchantment_glint_override=true] 1

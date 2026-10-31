@@ -1,0 +1,20 @@
+{
+  "pack": {
+    "pack_format": 57,
+    "supported_formats": [
+      57,
+      57
+    ],
+    "description": [
+      {
+        "text": "Posta Kutusu\n",
+        "color": "white",
+        "bold": true
+      },
+      {
+        "text": "Chest GUI posta sistemi • 1.21.3",
+        "color": "gray"
+      }
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+give @s minecraft:filled_map[custom_name='{"text":"Görev Haritası","italic":false,"color":"gold","bold":true}',lore=['{"text":"Sağ tık: görev tahtasını aç","italic":false,"color":"gray"}','{"text":"/trigger questboard","italic":false,"color":"dark_gray"}'],custom_data={key:1b,pack:"questboard"},max_stack_size=1,enchantment_glint_override=true] 1

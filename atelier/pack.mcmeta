@@ -1,0 +1,20 @@
+{
+  "pack": {
+    "pack_format": 57,
+    "supported_formats": [
+      57,
+      57
+    ],
+    "description": [
+      {
+        "text": "Büyü Atölyesi\n",
+        "color": "light_purple",
+        "bold": true
+      },
+      {
+        "text": "Chest GUI büyü & yükseltme • 1.21.3",
+        "color": "gray"
+      }
+    ]
+  }
+}
