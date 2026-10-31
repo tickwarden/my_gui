@@ -392,7 +392,12 @@ tellraw @a {{"text":"{title} kaldırıldı. Ardından datapack klasörünü sil.
     # silence unused
     del storages
 
-def page(folder: Path, ns: str, name: str, title: str, color: str, slots: list[dict | None], pack_actions_ok: bool = True) -> None:
+# Namespace -> set of action names referenced by that pack's pages.
+# Populated by page() as pages are written; checked by validate() against
+# the act/*.mcfunction files actually generated for that namespace.
+PACK_ACTIONS: dict[str, set[str]] = {}
+
+def page(folder: Path, ns: str, name: str, title: str, color: str, slots: list[dict | None]) -> None:
     actions: list[str] = []
     items: list[str] = []
     for i, slot in enumerate(slots):
@@ -426,9 +431,7 @@ function {ns}:page/{name}_act with storage {ns}:macro
         P / f"page/{name}_act.mcfunction",
         f"$data modify storage {ns}:rt p$(pid).actions set value {actions_snbt(actions)}",
     )
-    for action in actions:
-        if action != "none":
-            pack_actions_ok = pack_actions_ok
+    PACK_ACTIONS.setdefault(ns, set()).update(a for a in actions if a != "none")
     return actions
 
 def blank() -> list[None]:
@@ -1447,38 +1450,24 @@ execute store result storage atlas:macro pid int 1 run scoreboard players get @s
 execute store result storage atlas:macro sel int 1 run scoreboard players get @s atlas.sel
 """,
     )
-    for key in ("spawn", "nether", "end"):
-        write(
-            P / f"save/{key}.mcfunction",
-            f"""
-function atlas:save/fixed with storage atlas:macro
-$data modify storage atlas:dest {key}.name set value "{key}"
+    # Shared tail: store x/y/z/dim (from #x/#y/#z/#dim atlas.tmp, set by save/capture)
+    # into storage atlas:dest <key>, then mark it set. Each fixed point calls this
+    # and only adds its own display name.
+    write(
+        P / "save/fixed.mcfunction",
+        """
+$execute store result storage atlas:dest $(key).x int 1 run scoreboard players get #x atlas.tmp
+$execute store result storage atlas:dest $(key).y int 1 run scoreboard players get #y atlas.tmp
+$execute store result storage atlas:dest $(key).z int 1 run scoreboard players get #z atlas.tmp
+$execute store result storage atlas:dest $(key).dim int 1 run scoreboard players get #dim atlas.tmp
+$data modify storage atlas:dest $(key).set set value 1b
 """,
-        )
-    # fixed uses $(key) - do it properly per file without broken macro mix
+    )
     for key, label in (("spawn", "Dünya merkezi"), ("nether", "Nether kapısı"), ("end", "End adası")):
         write(
             P / f"save/{key}.mcfunction",
             f"""
-$execute store result storage atlas:dest {key}.x int 1 run scoreboard players get #x atlas.tmp
-$execute store result storage atlas:dest {key}.y int 1 run scoreboard players get #y atlas.tmp
-$execute store result storage atlas:dest {key}.z int 1 run scoreboard players get #z atlas.tmp
-$execute store result storage atlas:dest {key}.dim int 1 run scoreboard players get #dim atlas.tmp
-data modify storage atlas:dest {key}.set set value 1b
-data modify storage atlas:dest {key}.name set value "{label}"
-""",
-        )
-    # Those files have $ but don't need args if scores are global. A function with $ must be called with args.
-    # Remove $ from lines that don't need macros.
-    for key, label in (("spawn", "Dünya merkezi"), ("nether", "Nether kapısı"), ("end", "End adası")):
-        write(
-            P / f"save/{key}.mcfunction",
-            f"""
-execute store result storage atlas:dest {key}.x int 1 run scoreboard players get #x atlas.tmp
-execute store result storage atlas:dest {key}.y int 1 run scoreboard players get #y atlas.tmp
-execute store result storage atlas:dest {key}.z int 1 run scoreboard players get #z atlas.tmp
-execute store result storage atlas:dest {key}.dim int 1 run scoreboard players get #dim atlas.tmp
-data modify storage atlas:dest {key}.set set value 1b
+function atlas:save/fixed {{key:"{key}"}}
 data modify storage atlas:dest {key}.name set value "{label}"
 """,
         )
@@ -2047,22 +2036,15 @@ scoreboard players operation @e[type=minecraft:chest_minecart,tag=vault.this,lim
 scoreboard players operation @s vault.used = #used vault.tmp
 """,
     )
-    def sync_page(letter: str, key: str) -> str:
-        lines = ["scoreboard players set #used vault.tmp 0"]
-        for s in range(18):
-            lines.append(f"function vault:sync/slot with storage vault:macro {{slot:{s},page:\"{key}\"}}".replace("{slot:", "").replace("}") )
-        # I'll just unroll explicitly without nested macro confusion
-        lines = ["scoreboard players set #used vault.tmp 0"]
-        for s in range(18):
-            lines.append(f"$function vault:sync/one {{pid:$(pid),slot:{s},page:\"{key}\"}}")
-        return "\n".join(lines) + "\n"
-    # Calling with extra args AND storage: `function x with storage` uses storage only.
-    # Use inline only:
-    for letter, key in (("a", "A"), ("b", "B"), ("c", "C")):
+    def sync_page(key: str) -> str:
+        """Build the sync/page_<letter>.mcfunction body for vault page `key` (A/B/C)."""
         lines = ["scoreboard players set #used vault.tmp 0"]
         for s in range(18):
             lines.append(f'$function vault:sync/one {{pid:$(pid),slot:{s},page:"{key}"}}')
-        write(P / f"sync/page_{letter}.mcfunction", "\n".join(lines) + "\n")
+        return "\n".join(lines) + "\n"
+
+    for letter, key in (("a", "A"), ("b", "B"), ("c", "C")):
+        write(P / f"sync/page_{letter}.mcfunction", sync_page(key))
         write(
             P / f"vault/sync_orphan_{letter}.mcfunction",
             "\n".join([f'$function vault:sync/one_orphan {{pid:$(pid),slot:{s},page:"{key}"}}' for s in range(18)]) + "\n",
@@ -2537,6 +2519,12 @@ def validate(root: Path) -> None:
                         errors.append(f"missing function {name}  ←  {rel}")
             for m in tag_re.finditer(text):
                 tag_names.add(m.group(1))
+
+    # --- page actions resolve to real act/ functions ---
+    for ns, actions in PACK_ACTIONS.items():
+        for a in sorted(actions):
+            if f"{ns}:act/{a}" not in fn_re_files:
+                errors.append(f"page action '{a}' has no act/{a}.mcfunction in pack {ns}")
 
     # --- cross-pack hygiene ---
     if len(pack_dirs) < 4:
