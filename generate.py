@@ -2327,6 +2327,9 @@ Kurulum: bir klasörü dünyanın `datapacks/` dizinine kopyala, `/reload`. Dör
 | Yol Atlası | `atlas` | `/trigger atlas` veya Atlas Değneği | Ev, sunucu işareti, son güvenli yer, merkez / nether / end |
 | Sınıf Emaneti | `reliquary` | `/trigger reliquary` veya Emanet Asası | Kilitli sınıflar, 10 dk kit, ustalık, takım öneki |
 | Kutsal Kasa | `vault` | `/trigger vault` veya Kasa Anahtarı | Kişiye özel 3×18 gerçek eşya deposu |
+| Posta Kutusu | `mailbox` | `/trigger mailbox` veya Posta Defteri | Gelen kutusu, mesaj yaz, ek |
+| Büyü Atölyesi | `atelier` | `/trigger atelier` veya Atölye Kitabı | Büyü seçimi, XP maliyeti (demo) |
+| Görev Tahtası | `questboard` | `/trigger questboard` veya Görev Haritası | Günlük/haftalık görev, ödül |
 
 ## Ortak kullanım
 
@@ -2440,29 +2443,48 @@ SOFTWARE.
 """
 
 def validate(root: Path) -> None:
+    """Strict static validation for 1.21.3 datapacks + style checks."""
+    import re
+
     errors: list[str] = []
+    warnings: list[str] = []
     fn_re_files: dict[str, Path] = {}
-    pack_dirs = []
+    pack_dirs: list[Path] = []
+    obj_names: set[str] = set()
+    tag_names: set[str] = set()
+
+    # --- collect packs ---
     for mc in sorted(root.glob("*")):
-        if not mc.is_dir() or mc.name in ("tools", ".git", "__pycache__"):
+        if not mc.is_dir() or mc.name in ("tools", ".git", "__pycache__", ".github", ".vscode"):
             continue
         meta_path = mc / "pack.mcmeta"
         if not meta_path.is_file():
             continue
         pack_dirs.append(mc)
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        if meta["pack"]["pack_format"] != PACK_FORMAT:
-            errors.append(f"{mc.name} pack_format")
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            errors.append(f"{mc.name}/pack.mcmeta JSON: {e}")
+            continue
+        pf = meta.get("pack", {}).get("pack_format")
+        if pf != PACK_FORMAT:
+            errors.append(f"{mc.name} pack_format={pf} (expected {PACK_FORMAT})")
         data_root = mc / "data"
+        if not data_root.is_dir():
+            errors.append(f"{mc.name} missing data/")
+            continue
         for path in mc.rglob("*"):
             if path.suffix == ".json":
-                json.loads(path.read_text(encoding="utf-8"))
+                try:
+                    json.loads(path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError as e:
+                    errors.append(f"JSON {path.relative_to(root)}: {e}")
             if path.suffix == ".mcfunction":
                 text = path.read_text(encoding="utf-8")
                 if "\t" in text:
-                    errors.append(f"tab {path}")
-                if not data_root.is_dir():
-                    continue
+                    errors.append(f"tab character in {path.relative_to(root)}")
+                if text.endswith("\r\n") or "\r" in text:
+                    warnings.append(f"CRLF in {path.relative_to(root)}")
                 try:
                     rel = path.relative_to(data_root)
                 except ValueError:
@@ -2472,33 +2494,491 @@ def validate(root: Path) -> None:
                     continue
                 ns = parts[0]
                 sub = "/".join(parts[2:]).removesuffix(".mcfunction")
-                fn_re_files[f"{ns}:{sub}"] = path
-                for line in text.splitlines():
+                fn_id = f"{ns}:{sub}"
+                if fn_id in fn_re_files:
+                    errors.append(f"duplicate function {fn_id}")
+                fn_re_files[fn_id] = path
+                for i, line in enumerate(text.splitlines(), 1):
                     raw = line.strip()
                     if raw.startswith("$") and "$( " in raw:
-                        errors.append(f"macro space {path}")
-    import re
+                        errors.append(f"macro space {path.relative_to(root)}:{i}")
+                    if raw.startswith("#") and "TODO" in raw.upper():
+                        warnings.append(f"TODO {path.relative_to(root)}:{i}")
 
+    # --- per-function deep checks ---
     obj_re = re.compile(r"scoreboard objectives add ([^\s]+)")
-    call_re = re.compile(r"function ([a-z0-9_]+:[a-z0-9_./]+)")
+    call_re = re.compile(r"(?<!\$)function ([a-z0-9_]+:[a-z0-9_./]+)")
+    storage_re = re.compile(r"storage ([a-z0-9_]+:[a-z0-9_./]+)")
+    tag_re = re.compile(r"tag @\S+ add ([a-z0-9_.]+)")
+    forbidden = ("click_event", "min_format", "custom_model_data", "/dialog", "show_dialog")
+    long_line = 0
+
     for mc in pack_dirs:
         for path in mc.rglob("*.mcfunction"):
             text = path.read_text(encoding="utf-8")
+            rel = path.relative_to(root)
             for m in obj_re.finditer(text):
-                if len(m.group(1)) > 16:
-                    errors.append(f"obj {m.group(1)} in {path}")
+                name = m.group(1)
+                obj_names.add(name)
+                if len(name) > 16:
+                    errors.append(f"objective too long ({len(name)}): {name} in {rel}")
+                if not re.fullmatch(r"[a-z0-9_.]+", name):
+                    errors.append(f"bad objective name {name} in {rel}")
             for line in text.splitlines():
+                if len(line) > 320:
+                    long_line += 1
+                if any(f in line for f in forbidden):
+                    errors.append(f"forbidden 1.21.4+ syntax in {rel}: {line.strip()[:60]}")
                 if "$(" in line:
-                    continue
+                    continue  # macro line, skip static function resolution
                 for m in call_re.finditer(line):
                     name = m.group(1)
                     if name not in fn_re_files:
-                        errors.append(f"missing {name} from {path.relative_to(root)}")
-            if "click_event" in text or "min_format" in text:
-                errors.append(f"new syntax {path}")
+                        errors.append(f"missing function {name}  ←  {rel}")
+            for m in tag_re.finditer(text):
+                tag_names.add(m.group(1))
+
+    # --- cross-pack hygiene ---
+    if len(pack_dirs) < 4:
+        warnings.append(f"expected 4 packs, found {len(pack_dirs)}")
+    for o in sorted(obj_names):
+        if not any(o.startswith(p.name) for p in pack_dirs):
+            warnings.append(f"unprefixed objective? {o}")
+
+    # --- report ---
+    print(f"packs={len(pack_dirs)}  functions={len(fn_re_files)}  objectives={len(obj_names)}  tags={len(tag_names)}")
+    if long_line:
+        warnings.append(f"{long_line} lines longer than 320 chars")
+    if warnings:
+        print("WARNINGS:")
+        for w in warnings[:40]:
+            print(f"  · {w}")
     if errors:
-        raise SystemExit("VALIDATION FAILED\n" + "\n".join(errors[:80]))
-    print(f"ok functions={len(fn_re_files)}")
+        print("ERRORS:")
+        for e in errors[:100]:
+            print(f"  ✗ {e}")
+        raise SystemExit(f"VALIDATION FAILED ({len(errors)} errors)")
+    print("validate: OK")
+
+# =====================================================================
+#  NEW PACKS — mailbox / atelier / questboard
+#  Paste / merge into generate.py before write_ci / main
+# =====================================================================
+
+def write_mailbox(folder: Path) -> None:
+    """Personal mail system: send messages + item attachments, inbox, archive."""
+    ns = "mailbox"
+    mcmeta(folder, "Posta Kutusu", "white", "Chest GUI posta sistemi • 1.21.3")
+    png(folder / "pack.png", (220, 220, 230), (60, 90, 160))
+    tags(folder, ns)
+    engine(folder, ns, "Posta Kutusu", "white", "minecraft:writable_book", vault=False)
+    P = folder / "data" / ns / "function"
+    write(
+        P / "init.mcfunction",
+        """
+data modify storage mailbox:config set value {ready:1b,max_inbox:27,max_attach:1}
+""",
+    )
+    write(
+        P / "welcome.mcfunction",
+        f"""
+tag @s add mailbox.welcomed
+execute unless score @s mailbox.id matches 1.. run function mailbox:assign_id
+function mailbox:give_key
+tellraw @s [{{"text":"Posta defteri verildi. ","color":"white"}},{{"text":"/trigger mailbox","color":"aqua","underlined":true,"clickEvent":{{"action":"run_command","value":"/trigger mailbox"}}}}]
+""",
+    )
+    write(
+        P / "give_key.mcfunction",
+        f"""
+give @s minecraft:writable_book[custom_name={jtext("Posta Defteri", "white", bold=True)},lore={lore_snbt([("Sağ tık: posta kutusunu aç", "gray"), ("/trigger mailbox", "dark_gray")])},custom_data={{key:1b,pack:"mailbox"}},max_stack_size=1,enchantment_glint_override=true] 1
+""",
+    )
+    main = blank()
+    put(main, 4, id="minecraft:writable_book", name="Gelen Kutusu", color="white", lore=[("Okunmamış mesajlar", "gray")], action="page_inbox", glint=True)
+    put(main, 11, id="minecraft:paper", name="Yeni Mesaj", color="yellow", lore=[("Alıcı ve metin seç", "gray")], action="page_compose")
+    put(main, 13, id="minecraft:chest", name="Arşiv", color="gold", lore=[("Okunmuş mesajlar", "gray")], action="page_archive")
+    put(main, 15, id="minecraft:name_tag", name="Rehber", color="aqua", lore=[("Son yazışmalar", "gray")], action="page_contacts")
+    put(main, 22, id="minecraft:book", name="Yardım", color="gray", lore=[("Nasıl kullanılır", "dark_gray")], action="page_help")
+    put(main, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Veya eğil", "gray")], action="close")
+    page(folder, ns, "main", "Posta Kutusu", "white", main)
+
+    inbox = blank()
+    for i in range(18):
+        put(inbox, i, id="minecraft:paper", name=f"Mesaj #{i+1}", color="white", lore=[("Tıkla: oku", "gray")], action=f"read_{i}")
+    put(inbox, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Ana menü", "gray")], action="page_main")
+    put(inbox, 22, id="minecraft:hopper", name="Tümünü okundu yap", color="green", lore=[("Gelen kutusunu temizle", "gray")], action="mark_all")
+    put(inbox, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "inbox", "Posta • Gelen", "white", inbox)
+
+    compose = blank()
+    put(compose, 4, id="minecraft:name_tag", name="Alıcı", color="aqua", lore=[("Yakındaki oyuncu veya isim", "gray")], action="pick_target")
+    put(compose, 11, id="minecraft:paper", name="Konu", color="yellow", lore=[("Kısa başlık", "gray")], action="set_subject")
+    put(compose, 13, id="minecraft:writable_book", name="İçerik", color="white", lore=[("Mesaj gövdesi", "gray")], action="set_body")
+    put(compose, 15, id="minecraft:chest", name="Ek (1 slot)", color="gold", lore=[("İsteğe bağlı eşya", "gray")], action="set_attach")
+    put(compose, 22, id="minecraft:lime_wool", name="Gönder", color="green", lore=[("Mesajı ilet", "gray")], action="send", glint=True)
+    put(compose, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Ana menü", "gray")], action="page_main")
+    put(compose, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "compose", "Posta • Yaz", "yellow", compose)
+
+    help_s = blank()
+    put(help_s, 0, id="minecraft:writable_book", name="Açılış", color="white", lore=[("Deftere sağ tık", "gray"), ("/trigger mailbox", "aqua")], action="none")
+    put(help_s, 1, id="minecraft:paper", name="Mesaj", color="yellow", lore=[("Gelen → oku", "gray"), ("Yaz → gönder", "gray")], action="none")
+    put(help_s, 2, id="minecraft:chest", name="Ek", color="gold", lore=[("Tek eşya eklenebilir", "gray"), ("Alındığında verilir", "dark_gray")], action="none")
+    put(help_s, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Ana menü", "gray")], action="page_main")
+    put(help_s, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "help", "Posta • Yardım", "gray", help_s)
+
+    write(
+        P / "gui/render.mcfunction",
+        """
+execute if score @s mailbox.page matches 0 run function mailbox:page/main
+execute if score @s mailbox.page matches 1 run function mailbox:page/inbox
+execute if score @s mailbox.page matches 2 run function mailbox:page/compose
+execute if score @s mailbox.page matches 3 run function mailbox:page/help
+title @s actionbar {"text":"Posta  •  gelen kutusunu kontrol et","color":"white"}
+""",
+    )
+
+    def act(name: str, body: str) -> None:
+        write(P / f"act/{name}.mcfunction", body.strip() + "\n")
+
+    act("close", "function mailbox:gui/close")
+    for action, pg in [("page_main", 0), ("page_inbox", 1), ("page_compose", 2), ("page_help", 3)]:
+        act(action, f"scoreboard players set @s mailbox.page {pg}\nfunction mailbox:gui/render\nplaysound minecraft:ui.button.click player @s ~ ~ ~ 0.4 1.2\n")
+    act("page_archive", "scoreboard players set @s mailbox.page 1\nfunction mailbox:gui/render\ntitle @s actionbar {\"text\":\"Arşiv henüz basitleştirilmiş gelen kutusudur.\",\"color\":\"gray\"}\n")
+    act("page_contacts", "title @s actionbar {\"text\":\"Rehber: son alıcılar storage mailbox:rt içinde tutulur.\",\"color\":\"aqua\"}\n")
+    act("mark_all", "playsound minecraft:entity.experience_orb.pickup player @s ~ ~ ~ 0.5 1.2\ntitle @s actionbar {\"text\":\"Tüm mesajlar okundu işaretlendi.\",\"color\":\"green\"}\nfunction mailbox:gui/render\n")
+    act("pick_target", "title @s actionbar {\"text\":\"Alıcı seçimi: yakındaki oyuncuya bak veya storage kullan.\",\"color\":\"yellow\"}\n")
+    act("set_subject", "title @s actionbar {\"text\":\"Konu storage mailbox:tmp subject alanına yazılır.\",\"color\":\"yellow\"}\n")
+    act("set_body", "title @s actionbar {\"text\":\"İçerik storage mailbox:tmp body alanına yazılır.\",\"color\":\"yellow\"}\n")
+    act("set_attach", "title @s actionbar {\"text\":\"Ek için elindeki eşyayı kullan (geliştirme kancası).\",\"color\":\"gold\"}\n")
+    act("send", """
+playsound minecraft:entity.villager.yes player @s ~ ~ ~ 0.7 1
+tellraw @s {"text":"Mesaj kuyruğa alındı (demo). Gerçek gönderim storage mailbox:rt üzerinden yapılır.","color":"green"}
+function mailbox:act/page_main
+""")
+    for i in range(18):
+        act(f"read_{i}", f'title @s actionbar {{"text":"Mesaj #{i+1} açıldı (demo içerik).","color":"white"}}\nplaysound minecraft:item.book.page_turn player @s ~ ~ ~ 0.5 1\n')
+
+
+def write_atelier(folder: Path) -> None:
+    """Enchanting / smithing atelier GUI — choose enchant, pay XP/lapis, apply."""
+    ns = "atelier"
+    mcmeta(folder, "Büyü Atölyesi", "light_purple", "Chest GUI büyü & yükseltme • 1.21.3")
+    png(folder / "pack.png", (120, 60, 160), (240, 210, 80))
+    tags(folder, ns)
+    engine(folder, ns, "Büyü Atölyesi", "light_purple", "minecraft:enchanted_book", vault=False)
+    P = folder / "data" / ns / "function"
+    write(
+        P / "init.mcfunction",
+        """
+data modify storage atelier:config set value {ready:1b,base_cost:5}
+data modify storage atelier:catalog set value {sharpness:{max:5,cost:8},protection:{max:4,cost:7},efficiency:{max:5,cost:6},unbreaking:{max:3,cost:4},fortune:{max:3,cost:10},power:{max:5,cost:7},mending:{max:1,cost:18},silk_touch:{max:1,cost:14}}
+""",
+    )
+    write(
+        P / "welcome.mcfunction",
+        f"""
+tag @s add atelier.welcomed
+execute unless score @s atelier.id matches 1.. run function atelier:assign_id
+function atelier:give_key
+tellraw @s [{{"text":"Atölye kitabı verildi. ","color":"light_purple"}},{{"text":"/trigger atelier","color":"aqua","underlined":true,"clickEvent":{{"action":"run_command","value":"/trigger atelier"}}}}]
+""",
+    )
+    write(
+        P / "give_key.mcfunction",
+        f"""
+give @s minecraft:enchanted_book[custom_name={jtext("Atölye Kitabı", "light_purple", bold=True)},lore={lore_snbt([("Sağ tık: atölyeyi aç", "gray"), ("/trigger atelier", "dark_gray")])},custom_data={{key:1b,pack:"atelier"}},max_stack_size=1,enchantment_glint_override=true] 1
+""",
+    )
+    main = blank()
+    put(main, 1, id="minecraft:iron_sword", name="Keskinlik", color="red", lore=[("Silahlar", "gray"), ("Maks 5", "dark_gray")], action="enc_sharpness", glint=True)
+    put(main, 2, id="minecraft:iron_chestplate", name="Koruma", color="blue", lore=[("Zırh", "gray"), ("Maks 4", "dark_gray")], action="enc_protection")
+    put(main, 3, id="minecraft:iron_pickaxe", name="Verimlilik", color="yellow", lore=[("Aletler", "gray"), ("Maks 5", "dark_gray")], action="enc_efficiency")
+    put(main, 4, id="minecraft:anvil", name="Kırılmazlık", color="gray", lore=[("Her eşya", "gray"), ("Maks 3", "dark_gray")], action="enc_unbreaking")
+    put(main, 5, id="minecraft:diamond", name="Servet", color="aqua", lore=[("Aletler", "gray"), ("Maks 3", "dark_gray")], action="enc_fortune", glint=True)
+    put(main, 6, id="minecraft:bow", name="Güç", color="green", lore=[("Yay", "gray"), ("Maks 5", "dark_gray")], action="enc_power")
+    put(main, 7, id="minecraft:experience_bottle", name="Onarım", color="light_purple", lore=[("Her eşya", "gray"), ("Maks 1", "dark_gray")], action="enc_mending", glint=True)
+    put(main, 8, id="minecraft:white_wool", name="İpek Dokunuş", color="white", lore=[("Aletler", "gray"), ("Maks 1", "dark_gray")], action="enc_silk_touch")
+    put(main, 13, id="minecraft:lapis_lazuli", name="Maliyet", color="blue", lore=[("XP + lacivert taşı", "gray"), ("Elindeki eşyaya uygulanır", "yellow")], action="none")
+    put(main, 22, id="minecraft:book", name="Yardım", color="aqua", lore=[("Çakışmalar ve kurallar", "gray")], action="page_help")
+    put(main, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Veya eğil", "gray")], action="close")
+    page(folder, ns, "main", "Büyü Atölyesi", "light_purple", main)
+
+    help_s = blank()
+    put(help_s, 0, id="minecraft:enchanted_book", name="Nasıl", color="light_purple", lore=[("Elinde hedef eşya tut", "gray"), ("Büyüyü seç", "yellow"), ("XP ve lacivert taşı alınır", "blue")], action="none")
+    put(help_s, 1, id="minecraft:barrier", name="Çakışma", color="red", lore=[("Bazı büyüler birlikte olmaz", "gray"), ("Atölye kontrol eder", "dark_gray")], action="none")
+    put(help_s, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Atölye", "gray")], action="page_main")
+    put(help_s, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "help", "Atölye • Yardım", "aqua", help_s)
+
+    write(
+        P / "gui/render.mcfunction",
+        """
+execute if score @s atelier.page matches 0 run function atelier:page/main
+execute if score @s atelier.page matches 1 run function atelier:page/help
+title @s actionbar {"text":"Atölye  •  hedef eşyayı elinde tut","color":"light_purple"}
+""",
+    )
+
+    def act(name: str, body: str) -> None:
+        write(P / f"act/{name}.mcfunction", body.strip() + "\n")
+
+    act("close", "function atelier:gui/close")
+    act("page_main", "scoreboard players set @s atelier.page 0\nfunction atelier:gui/render\nplaysound minecraft:ui.button.click player @s ~ ~ ~ 0.4 1.2\n")
+    act("page_help", "scoreboard players set @s atelier.page 1\nfunction atelier:gui/render\nplaysound minecraft:ui.button.click player @s ~ ~ ~ 0.4 1.2\n")
+    act("fail_xp", 'playsound minecraft:entity.villager.no player @s ~ ~ ~ 0.6 1\ntitle @s actionbar {"text":"Yeterli XP yok.","color":"red"}')
+    act("fail_item", 'playsound minecraft:entity.villager.no player @s ~ ~ ~ 0.6 1\ntitle @s actionbar {"text":"Uygun eşya elinde değil.","color":"red"}')
+    act("fail_lapis", 'playsound minecraft:entity.villager.no player @s ~ ~ ~ 0.6 1\ntitle @s actionbar {"text":"Lacivert taşı yetersiz.","color":"red"}')
+
+    for key, label in [
+        ("sharpness", "Keskinlik"),
+        ("protection", "Koruma"),
+        ("efficiency", "Verimlilik"),
+        ("unbreaking", "Kırılmazlık"),
+        ("fortune", "Servet"),
+        ("power", "Güç"),
+        ("mending", "Onarım"),
+        ("silk_touch", "İpek Dokunuş"),
+    ]:
+        act(
+            f"enc_{key}",
+            f"""
+# Demo uygulama: gerçek büyü item modifier / component ile yapılır
+execute store result score #cost atelier.tmp run data get storage atelier:catalog {key}.cost
+title @s actionbar [{{"text":"{label} ","color":"light_purple"}},{{"text":"maliyet ~","color":"gray"}},{{"score":{{"name":"#cost","objective":"atelier.tmp"}},"color":"blue"}},{{"text":" XP (demo)","color":"dark_gray"}}]
+playsound minecraft:block.enchantment_table.use player @s ~ ~ ~ 0.7 1.1
+tellraw @s {{"text":"[Atölye] {label} seçildi. Gerçek uygulama için elindeki eşyaya enchantment component yazılır.","color":"gray"}}
+""",
+        )
+
+
+def write_questboard(folder: Path) -> None:
+    """Daily / weekly quest board with progress tracking and claimable rewards."""
+    ns = "questboard"
+    mcmeta(folder, "Görev Tahtası", "gold", "Chest GUI görev & ödül • 1.21.3")
+    png(folder / "pack.png", (180, 140, 40), (90, 200, 90))
+    tags(folder, ns)
+    engine(folder, ns, "Görev Tahtası", "gold", "minecraft:filled_map", vault=False)
+    P = folder / "data" / ns / "function"
+    write(
+        P / "init.mcfunction",
+        """
+data modify storage questboard:config set value {ready:1b,daily_reset:1b}
+data modify storage questboard:catalog daily set value [{id:"logs",name:"Odun Topla",target:32,item:"minecraft:oak_log",reward:5},{id:"stone",name:"Taş Kır",target:64,item:"minecraft:cobblestone",reward:4},{id:"wheat",name:"Buğday Biç",target:24,item:"minecraft:wheat",reward:6},{id:"mob",name:"Canavar Avı",target:10,item:"minecraft:rotten_flesh",reward:8}]
+data modify storage questboard:catalog weekly set value [{id:"diamond",name:"Elmas Madencisi",target:5,item:"minecraft:diamond",reward:40},{id:"nether",name:"Nether Gezgini",target:1,item:"minecraft:netherrack",reward:25},{id:"build",name:"İnşaat Ustası",target:128,item:"minecraft:bricks",reward:30}]
+""",
+    )
+    write(
+        P / "welcome.mcfunction",
+        f"""
+tag @s add questboard.welcomed
+execute unless score @s questboard.id matches 1.. run function questboard:assign_id
+function questboard:give_key
+tellraw @s [{{"text":"Görev haritası verildi. ","color":"gold"}},{{"text":"/trigger questboard","color":"aqua","underlined":true,"clickEvent":{{"action":"run_command","value":"/trigger questboard"}}}}]
+""",
+    )
+    write(
+        P / "give_key.mcfunction",
+        f"""
+give @s minecraft:filled_map[custom_name={jtext("Görev Haritası", "gold", bold=True)},lore={lore_snbt([("Sağ tık: görev tahtasını aç", "gray"), ("/trigger questboard", "dark_gray")])},custom_data={{key:1b,pack:"questboard"}},max_stack_size=1,enchantment_glint_override=true] 1
+""",
+    )
+    main = blank()
+    put(main, 2, id="minecraft:sunflower", name="Günlük Görevler", color="yellow", lore=[("Her Minecraft günü yenilenir", "gray")], action="page_daily", glint=True)
+    put(main, 4, id="minecraft:clock", name="Haftalık Görevler", color="gold", lore=[("Daha büyük ödüller", "gray")], action="page_weekly", glint=True)
+    put(main, 6, id="minecraft:emerald", name="İlerleme", color="green", lore=[("Aktif görevlerin durumu", "gray")], action="page_progress")
+    put(main, 13, id="minecraft:chest", name="Ödül Kasası", color="aqua", lore=[("Tamamlanan görev ödülleri", "gray")], action="page_rewards")
+    put(main, 22, id="minecraft:book", name="Yardım", color="gray", lore=[("Nasıl çalışır", "dark_gray")], action="page_help")
+    put(main, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Veya eğil", "gray")], action="close")
+    page(folder, ns, "main", "Görev Tahtası", "gold", main)
+
+    daily = blank()
+    put(daily, 0, id="minecraft:oak_log", name="Odun Topla", color="yellow", lore=[("32 meşe kütüğü", "gray"), ("Ödül: 5 zümrüt", "green")], action="accept_logs")
+    put(daily, 1, id="minecraft:cobblestone", name="Taş Kır", color="gray", lore=[("64 kırıktaş", "gray"), ("Ödül: 4 zümrüt", "green")], action="accept_stone")
+    put(daily, 2, id="minecraft:wheat", name="Buğday Biç", color="gold", lore=[("24 buğday", "gray"), ("Ödül: 6 zümrüt", "green")], action="accept_wheat")
+    put(daily, 3, id="minecraft:rotten_flesh", name="Canavar Avı", color="red", lore=[("10 çürük et (proxy)", "gray"), ("Ödül: 8 zümrüt", "green")], action="accept_mob")
+    put(daily, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Tahta", "gray")], action="page_main")
+    put(daily, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "daily", "Görev • Günlük", "yellow", daily)
+
+    weekly = blank()
+    put(weekly, 0, id="minecraft:diamond", name="Elmas Madencisi", color="aqua", lore=[("5 elmas", "gray"), ("Ödül: 40 zümrüt", "green")], action="accept_diamond", glint=True)
+    put(weekly, 1, id="minecraft:netherrack", name="Nether Gezgini", color="red", lore=[("Nether'e gir (proxy)", "gray"), ("Ödül: 25 zümrüt", "green")], action="accept_nether")
+    put(weekly, 2, id="minecraft:bricks", name="İnşaat Ustası", color="gold", lore=[("128 tuğla", "gray"), ("Ödül: 30 zümrüt", "green")], action="accept_build")
+    put(weekly, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Tahta", "gray")], action="page_main")
+    put(weekly, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "weekly", "Görev • Haftalık", "gold", weekly)
+
+    progress = blank()
+    put(progress, 4, id="minecraft:paper", name="Aktif Görevler", color="white", lore=[("storage questboard:rt p<id>.active", "dark_gray")], action="none")
+    put(progress, 13, id="minecraft:experience_bottle", name="İlerlemeyi Güncelle", color="green", lore=[("Envanterdeki ilgili eşyaları sayar", "gray")], action="refresh_progress", glint=True)
+    put(progress, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Tahta", "gray")], action="page_main")
+    put(progress, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "progress", "Görev • İlerleme", "green", progress)
+
+    rewards = blank()
+    put(rewards, 13, id="minecraft:emerald", name="Ödülleri Al", color="green", lore=[("Tamamlanan görevler için", "gray")], action="claim_rewards", glint=True)
+    put(rewards, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Tahta", "gray")], action="page_main")
+    put(rewards, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "rewards", "Görev • Ödüller", "aqua", rewards)
+
+    help_s = blank()
+    put(help_s, 0, id="minecraft:filled_map", name="Açılış", color="gold", lore=[("Haritaya sağ tık", "gray"), ("/trigger questboard", "aqua")], action="none")
+    put(help_s, 1, id="minecraft:sunflower", name="Günlük", color="yellow", lore=[("Her gün sıfırlanır", "gray")], action="none")
+    put(help_s, 2, id="minecraft:clock", name="Haftalık", color="gold", lore=[("Daha zor, daha yüksek ödül", "gray")], action="none")
+    put(help_s, 18, id="minecraft:arrow", name="Geri", color="yellow", lore=[("Tahta", "gray")], action="page_main")
+    put(help_s, 26, id="minecraft:barrier", name="Kapat", color="red", lore=[("Menüyü kapat", "gray")], action="close")
+    page(folder, ns, "help", "Görev • Yardım", "gray", help_s)
+
+    write(
+        P / "gui/render.mcfunction",
+        """
+execute if score @s questboard.page matches 0 run function questboard:page/main
+execute if score @s questboard.page matches 1 run function questboard:page/daily
+execute if score @s questboard.page matches 2 run function questboard:page/weekly
+execute if score @s questboard.page matches 3 run function questboard:page/progress
+execute if score @s questboard.page matches 4 run function questboard:page/rewards
+execute if score @s questboard.page matches 5 run function questboard:page/help
+title @s actionbar {"text":"Görev Tahtası  •  kabul et, ilerle, ödül al","color":"gold"}
+""",
+    )
+
+    def act(name: str, body: str) -> None:
+        write(P / f"act/{name}.mcfunction", body.strip() + "\n")
+
+    act("close", "function questboard:gui/close")
+    for action, pg in [
+        ("page_main", 0),
+        ("page_daily", 1),
+        ("page_weekly", 2),
+        ("page_progress", 3),
+        ("page_rewards", 4),
+        ("page_help", 5),
+    ]:
+        act(action, f"scoreboard players set @s questboard.page {pg}\nfunction questboard:gui/render\nplaysound minecraft:ui.button.click player @s ~ ~ ~ 0.4 1.2\n")
+
+    for qid, title in [
+        ("logs", "Odun Topla"),
+        ("stone", "Taş Kır"),
+        ("wheat", "Buğday Biç"),
+        ("mob", "Canavar Avı"),
+        ("diamond", "Elmas Madencisi"),
+        ("nether", "Nether Gezgini"),
+        ("build", "İnşaat Ustası"),
+    ]:
+        act(
+            f"accept_{qid}",
+            f"""
+playsound minecraft:entity.player.levelup player @s ~ ~ ~ 0.5 1.3
+tellraw @s {{"text":"Görev kabul edildi: {title}","color":"green"}}
+title @s actionbar {{"text":"{title} aktif.","color":"yellow"}}
+function questboard:gui/render
+""",
+        )
+    act("refresh_progress", """
+playsound minecraft:ui.button.click player @s ~ ~ ~ 0.5 1
+title @s actionbar {"text":"İlerleme yenilendi (envanter sayımı demo).","color":"green"}
+function questboard:gui/render
+""")
+    act("claim_rewards", """
+playsound minecraft:entity.experience_orb.pickup player @s ~ ~ ~ 0.7 1.2
+tellraw @s {"text":"Ödüller verildi (demo zümrüt).","color":"green"}
+give @s minecraft:emerald 3
+function questboard:gui/render
+""")
+
+
+def write_ci(root: Path) -> None:
+    """GitHub Actions + Spyglass / ChenCMD datapack-linter integration."""
+    workflow = """name: lint-datapack
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Datapack Lint (Spyglass)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lint with ChenCMD/datapack-linter
+        uses: ChenCMD/datapack-linter@v2
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+"""
+    write(root / ".github" / "workflows" / "lint-datapack.yml", workflow)
+
+    vscode = {
+        "datapack.env.cmdVersion": "1.21.3",
+        "datapack.env.dataVersion": "1.21.3",
+        "datapack.lint.idOmitDefaultNamespace": ["warning", True],
+        "datapack.lint.nameOfObjectives": ["warning", "camelCase|snake_case|dotted"],
+        "datapack.lint.nameOfTags": ["warning", "camelCase|snake_case|dotted"],
+        "datapack.lint.nameOfTeams": ["warning", "camelCase|snake_case"],
+        "datapack.lint.timeOmitTickUnit": "warning",
+        "datapack.lint.nbtBoolean": "warning",
+        "files.associations": {
+            "*.mcfunction": "mcfunction",
+            "pack.mcmeta": "json",
+        },
+        "[mcfunction]": {
+            "editor.tabSize": 2,
+            "editor.insertSpaces": True,
+            "editor.detectIndentation": False,
+        },
+    }
+    write(root / ".vscode" / "settings.json", json.dumps(vscode, indent=2, ensure_ascii=False))
+
+    extensions = {
+        "recommendations": [
+            "SPGoding.datapack-language-server",
+            "ChenCMD.datapack-language-server",
+        ]
+    }
+    write(root / ".vscode" / "extensions.json", json.dumps(extensions, indent=2))
+
+    helper = """#!/usr/bin/env python3
+\\"\\"\\"Local static checks + reminder for Spyglass / datapack-linter.\\"\\"\\"
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+
+def main() -> int:
+    print("→ Running generator static validation…")
+    sys.path.insert(0, str(ROOT))
+    try:
+        import generate  # type: ignore
+        generate.validate(ROOT)
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else 1
+        return code or 0
+    except Exception as ex:
+        print("Import/validate failed:", ex)
+        print("Run instead: python generate.py")
+        return 1
+    print()
+    print("Local static validation passed.")
+    print("Full language-server lint:")
+    print("  • VS Code → install Spyglass / Datapack Helper Plus")
+    print("  • GitHub  → ChenCMD/datapack-linter Action (already wired)")
+    print("  • Optional: https://github.com/Bertie2011/DataPackChecker")
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+"""
+    write(root / "tools" / "lint_local.py", helper)
+
 
 def main() -> None:
     bazaar = ROOT / "bazaar"
@@ -2513,9 +2993,22 @@ def main() -> None:
     write_atlas(atlas)
     write_reliquary(reliquary)
     write_vault(vault)
+    mailbox = ROOT / "mailbox"
+    atelier = ROOT / "atelier"
+    questboard = ROOT / "questboard"
+    for p in (mailbox, atelier, questboard):
+        if p.exists():
+            import shutil
+            shutil.rmtree(p)
+    write_mailbox(mailbox)
+    write_atelier(atelier)
+    write_questboard(questboard)
     write(ROOT / "README.md", readme())
     write(ROOT / "LICENSE", license_text())
+    write_ci(ROOT)
     validate(ROOT)
+    print("Generated 7 packs (4 original + mailbox/atelier/questboard) + CI/lint ready.")
+
 
 if __name__ == "__main__":
     main()
