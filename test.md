@@ -1,6 +1,7 @@
-```mermaid
-flowchart LR
-    A[Oyuncu komutu] --> B{İzin var mı?}
-    B -- Evet --> C[Fonksiyon çalışır]
-    B -- Hayır --> D[Reddet]
+```geojson
+{
+  "type": "Feature",
+  "geometry": { "type": "Point", "coordinates": [28.9784, 41.0082] },
+  "properties": { "name": "İstanbul" }
+}
 ```
